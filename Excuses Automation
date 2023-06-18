@@ -1,0 +1,56 @@
+from flask import Flask, request, jsonify
+from slack_sdk import WebClient
+import os
+app = Flask(__name__)
+slack_token = "slack-token"
+slack_client = WebClient(token=slack_token)
+@app.route('/slack/events/', methods=['POST', 'GET'])
+def handle_slack_event():
+    payload = request.json
+    
+    if 'event' in payload and 'type' in payload['event'] and payload['event']['type'] == 'message':
+        event = payload['event']
+        
+        
+        # Extract desired information
+        text = event['text']
+        
+        user = extract_user(text)
+        user = get_username(user)
+        leave_date = extract_info(text, '*Leave Date *', '*Type of Excuse *')
+        type_of_excuse = extract_info(text, '*Type of Excuse *', '*Excuse Reasoning *')
+        join_by_when = extract_info(text, '*Join by when *', '*Approved by *')
+        # Print extracted information
+        print('User:', user)
+        print('Leave Date:', leave_date)
+        print('Type of Excuse:', type_of_excuse)
+        print('Join by when:', join_by_when)
+    
+    return 'OK'
+
+def extract_user(text):
+    start_marker = 'submission from <@'
+    end_marker = '>'
+    start_index = text.find(start_marker) + len(start_marker)
+    end_index = text.find(end_marker, start_index)
+    user_id = text[start_index:end_index].strip()
+    return user_id
+
+def get_username(user_id):
+    try:
+       response = slack_client.users_info(user=user_id)
+       user_info = response['user']
+     #  print(user_info)
+       return user_info['name']
+    except Exception as e:
+       print(f"Failed to retrieve username for user ID {user_id}: {str(e)}")
+       return 'Unknown User'
+
+
+def extract_info(text, start_marker, end_marker):
+    start_index = text.find(start_marker) + len(start_marker)
+    end_index = text.find(end_marker, start_index)
+    return text[start_index:end_index].strip()
+
+if __name__ == '__main__':
+    app.run(port=3000)
